@@ -16,12 +16,14 @@
 OCF_RESKEY_system_user_default=postgres
 OCF_RESKEY_bindir_default=/usr/bin
 OCF_RESKEY_pgdata_default=/var/lib/pgsql/data
+OCF_RESKEY_pgconf_default=/etc/postgresql/9.4/main/postgresql.conf
 OCF_RESKEY_trigger_file_default=""
 
 : ${OCF_RESKEY_system_user=${OCF_RESKEY_system_user_default}}
 : ${OCF_RESKEY_bindir=${OCF_RESKEY_bindir_default}}
 : ${OCF_RESKEY_pgdata=${OCF_RESKEY_pgdata_default}}
 : ${OCF_RESKEY_trigger_file=${OCF_RESKEY_trigger_file_default}}
+: ${OCF_RESKEY_pgconf=${OCF_RESKEY_pgconf_default}}
 
 
 function pgsql_validate_all() {
@@ -47,6 +49,11 @@ function pgsql_validate_all() {
     if [ ! -s "${OCF_RESKEY_pgdata}/PG_VERSION" ] ; then
         ocf_log error "PG_VERSION does not exists in \"${OCF_RESKEY_pgdata}\"";
         return $OCF_ERR_CONFIGURED
+    fi
+
+    # check config
+    if [ ! -e "${OCF_RESKEY_pgconf}" ]; then
+        ocf_log error "PGCONF does not exist at \"${OCF_RESKEY_pgconf}\"";
     fi
 
     # check system user
@@ -113,6 +120,14 @@ ocf_meta_data() {
       </longdesc>
       <shortdesc lang="en">Path to the promotion trigger file</shortdesc>
       <content type="string" default="" />
+    </parameter>
+
+    <parameter name="pgconf" unique="1" required="0">
+      <longdesc lang="en">
+        Path to the postgres config file, e.g. ${OCF_RESKEY_pgconf_default}
+      </longdesc>
+      <shortdesc lang="en">Path to the postgres config file</shortdesc>
+      <content type="string" default="${OCF_RESKEY_pgconf_default}" />
     </parameter>
 
   </parameters>
@@ -208,7 +223,7 @@ pg_is_running() {
 pg_start() {
     local rc
 
-    su -l -c "${OCF_RESKEY_bindir}/pg_ctl -D ${OCF_RESKEY_pgdata} -w start" ${OCF_RESKEY_system_user}
+    su -l -c "${OCF_RESKEY_bindir}/pg_ctl -D ${OCF_RESKEY_pgdata} -o \"-c config_file=${OCF_RESKEY_pgconf}\" -w start" ${OCF_RESKEY_system_user}
     rc=$?
 
     if test $rc -eq 0; then
@@ -238,7 +253,7 @@ pg_stop() {
 
 pg_reload() {
     # no action necessary, this action is just to inform pacemaker that
-    # modification of non-unique parameters can be applied without 
+    # modification of non-unique parameters can be applied without
     # restarting the resource
     ocf_log info "$__OCF_ACTION - pg_reload : instance $OCF_RESOURCE_INSTANCE \"startable\" attribute changed to: \"$OCF_RESKEY_startable\"."
     return $OCF_SUCCESS
@@ -420,7 +435,7 @@ case $1 in
                 pg_stop
                 exit $OCF_ERR_GENERIC
             else
-                # The instance is stopped 
+                # The instance is stopped
                 ocf_log error "$__OCF_ACTION - The instance ${OCF_RESOURCE_INSTANCE} is not running."
                 exit $OCF_NOT_RUNNING
             fi
