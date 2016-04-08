@@ -402,7 +402,7 @@ case $1 in
             esac
         else
             # Slave
-            ocf_log_info "$__OCF_ACTION - No need to stop a Standby."
+            ocf_log info "$__OCF_ACTION - No need to stop a Standby."
             exit $OCF_SUCCESS
         fi
         ;;
